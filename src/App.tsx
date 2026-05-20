@@ -42,6 +42,7 @@ import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart as RePieChart, Resp
 
 type Page = 'home' | 'signin' | 'signup' | 'dashboard';
 type Language = 'en' | 'ar';
+type DashboardSection = 'overview' | 'shareholders' | 'scenarios' | 'reports' | 'portal';
 
 const copy = {
   en: {
@@ -51,7 +52,7 @@ const copy = {
       scenarios: 'Scenarios',
       pricing: 'Pricing',
       signIn: 'Sign in',
-      startFree: 'Start free',
+      startFree: 'Sign Up',
       language: 'العربية',
       home: 'Go home',
       theme: 'Toggle theme',
@@ -118,6 +119,13 @@ const copy = {
     },
     dashboard: {
       nav: ['Overview', 'Shareholders', 'Scenarios', 'Reports', 'Investor portal'],
+      sectionTitles: {
+        overview: 'Overview',
+        shareholders: 'Shareholders',
+        scenarios: 'Scenarios',
+        reports: 'Reports',
+        portal: 'Investor portal',
+      },
       workspace: 'Workspace',
       title: 'EquivatorAI cap table',
       share: 'Share',
@@ -135,6 +143,26 @@ const copy = {
       cashAfterRaise: 'Cash after raise',
       comparison: 'Scenario comparison',
       founderVsInvestor: 'Founder vs investor ownership',
+      shares: 'Shares',
+      ownershipPercent: 'Ownership',
+      shareClass: 'Share class',
+      common: 'Common',
+      preferred: 'Preferred',
+      options: 'Options',
+      update: 'Update',
+      valuation: 'Valuation',
+      optionPool: 'Option pool',
+      foundersRetained: 'Founders retained',
+      status: 'Status',
+      ready: 'Ready',
+      draft: 'Draft',
+      generateReport: 'Generate report',
+      reportItems: ['Board update summary', 'Investor cap table export', 'Scenario comparison memo'],
+      portalIntro: 'Share selected metrics and reports with investors without exposing internal planning notes.',
+      portalAccess: 'Portal access',
+      enabled: 'Enabled',
+      lastViewed: 'Last viewed',
+      inviteInvestor: 'Invite investor',
     },
   },
   ar: {
@@ -144,7 +172,7 @@ const copy = {
       scenarios: 'السيناريوهات',
       pricing: 'الأسعار',
       signIn: 'تسجيل الدخول',
-      startFree: 'ابدأ مجانا',
+      startFree: 'إنشاء حساب',
       language: 'English',
       home: 'العودة للرئيسية',
       theme: 'تبديل المظهر',
@@ -211,6 +239,13 @@ const copy = {
     },
     dashboard: {
       nav: ['نظرة عامة', 'المساهمون', 'السيناريوهات', 'التقارير', 'بوابة المستثمرين'],
+      sectionTitles: {
+        overview: 'نظرة عامة',
+        shareholders: 'المساهمون',
+        scenarios: 'السيناريوهات',
+        reports: 'التقارير',
+        portal: 'بوابة المستثمرين',
+      },
       workspace: 'مساحة العمل',
       title: 'جدول ملكية EquivatorAI',
       share: 'مشاركة',
@@ -228,6 +263,26 @@ const copy = {
       cashAfterRaise: 'النقد بعد الجولة',
       comparison: 'مقارنة السيناريوهات',
       founderVsInvestor: 'ملكية المؤسسين مقابل المستثمرين',
+      shares: 'الأسهم',
+      ownershipPercent: 'الملكية',
+      shareClass: 'فئة الأسهم',
+      common: 'عادية',
+      preferred: 'ممتازة',
+      options: 'خيارات',
+      update: 'تحديث',
+      valuation: 'التقييم',
+      optionPool: 'خطة الخيارات',
+      foundersRetained: 'حصة المؤسسين المتبقية',
+      status: 'الحالة',
+      ready: 'جاهز',
+      draft: 'مسودة',
+      generateReport: 'إنشاء تقرير',
+      reportItems: ['ملخص تحديث المجلس', 'تصدير جدول الملكية للمستثمرين', 'مذكرة مقارنة السيناريوهات'],
+      portalIntro: 'شارك مؤشرات وتقارير مختارة مع المستثمرين من دون كشف ملاحظات التخطيط الداخلية.',
+      portalAccess: 'وصول البوابة',
+      enabled: 'مفعل',
+      lastViewed: 'آخر مشاهدة',
+      inviteInvestor: 'دعوة مستثمر',
     },
   },
 } as const;
@@ -576,6 +631,15 @@ function Dashboard({
   onLanguageToggle: () => void;
 }) {
   const [selectedRound, setSelectedRound] = useState(rounds[1]);
+  const [activeSection, setActiveSection] = useState<DashboardSection>('overview');
+  const sidebarItems: Array<[DashboardSection, ReactNode, string]> = [
+    ['overview', <BarChart3 size={18} />, t.dashboard.nav[0]],
+    ['shareholders', <Users size={18} />, t.dashboard.nav[1]],
+    ['scenarios', <Layers3 size={18} />, t.dashboard.nav[2]],
+    ['reports', <FileText size={18} />, t.dashboard.nav[3]],
+    ['portal', <Globe2 size={18} />, t.dashboard.nav[4]],
+  ];
+
   return (
     <div className="dashboard">
       <aside className="sidebar">
@@ -584,18 +648,22 @@ function Dashboard({
           <span>Dilute</span>
         </button>
         <nav>
-          <a className="active"><BarChart3 size={18} /> {t.dashboard.nav[0]}</a>
-          <a><Users size={18} /> {t.dashboard.nav[1]}</a>
-          <a><Layers3 size={18} /> {t.dashboard.nav[2]}</a>
-          <a><FileText size={18} /> {t.dashboard.nav[3]}</a>
-          <a><Globe2 size={18} /> {t.dashboard.nav[4]}</a>
+          {sidebarItems.map(([section, icon, label]) => (
+            <button
+              className={activeSection === section ? 'active' : ''}
+              key={section}
+              onClick={() => setActiveSection(section)}
+            >
+              {icon} {label}
+            </button>
+          ))}
         </nav>
       </aside>
       <main className="dashboard-main">
         <header className="dashboard-header">
           <div>
             <p>{t.dashboard.workspace}</p>
-            <h1>{t.dashboard.title}</h1>
+            <h1>{activeSection === 'overview' ? t.dashboard.title : t.dashboard.sectionTitles[activeSection]}</h1>
           </div>
           <div className="dashboard-actions">
             <button className="language-button" onClick={onLanguageToggle}>
@@ -610,102 +678,276 @@ function Dashboard({
           </div>
         </header>
 
-        <section className="dashboard-grid">
-          <Metric icon={<Users />} label={t.dashboard.totalShares} value={formatNumber(totalShares())} />
-          <Metric icon={<CircleDollarSign />} label={t.dashboard.preMoney} value={formatMoney(selectedRound.preMoney)} />
-          <Metric icon={<PieChart />} label={t.dashboard.investorOwnership} value={`${roundInvestorOwnership(selectedRound).toFixed(1)}%`} />
-          <Metric icon={<Gauge />} label={t.dashboard.founderOwnership} value={`${Math.max(founderOwnershipAfter(selectedRound), 0).toFixed(1)}%`} />
-        </section>
-
-        <section className="workbench">
-          <div className="workspace-card large-card">
-            <div className="card-heading">
-              <div>
-                <p>{t.dashboard.ownership}</p>
-                <h2>{t.dashboard.currentCapTable}</h2>
-              </div>
-              <button className="secondary-button"><Plus size={16} /> {t.dashboard.addHolder}</button>
-            </div>
-            <div className="ownership-layout">
-              <ResponsiveContainer width="100%" height={260}>
-                <RePieChart>
-                  <Pie data={ownershipData} innerRadius={72} outerRadius={104} paddingAngle={3} dataKey="value">
-                    {ownershipData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip />
-                </RePieChart>
-              </ResponsiveContainer>
-              <div className="holder-list">
-                {stakeholders.map((holder) => (
-                  <div key={holder.name}>
-                    <span style={{ background: holder.color }} />
-                    <strong>{holder.name}</strong>
-                    <small>{holder.role}</small>
-                    <em>{ownershipPercent(holder.shares).toFixed(1)}%</em>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="workspace-card">
-            <div className="card-heading">
-              <div>
-                <p>{t.dashboard.roundModel}</p>
-                <h2>{selectedRound.name}</h2>
-              </div>
-            </div>
-            <div className="round-list">
-              {rounds.map((round) => (
-                <button className={round.name === selectedRound.name ? 'active' : ''} key={round.name} onClick={() => setSelectedRound(round)}>
-                  <span>
-                    <strong>{round.name}</strong>
-                    <small>{formatMoney(round.investment)} {t.dashboard.investment}</small>
-                  </span>
-                  <ChevronRight size={18} />
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="workbench">
-          <div className="workspace-card">
-            <div className="card-heading">
-              <div>
-                <p>{t.dashboard.runway}</p>
-                <h2>{t.dashboard.cashAfterRaise}</h2>
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={runwayData}>
-                <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                <YAxis hide />
-                <Tooltip />
-                <Area type="monotone" dataKey="cash" stroke="#1d4ed8" fill="#bfdbfe" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="workspace-card large-card">
-            <div className="card-heading">
-              <div>
-                <p>{t.dashboard.comparison}</p>
-                <h2>{t.dashboard.founderVsInvestor}</h2>
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={scenarioRows}>
-                <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="founders" fill="#1d4ed8" radius={[7, 7, 0, 0]} />
-                <Bar dataKey="investor" fill="#0f766e" radius={[7, 7, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
+        {activeSection === 'overview' && <OverviewSection selectedRound={selectedRound} setSelectedRound={setSelectedRound} t={t} />}
+        {activeSection === 'shareholders' && <ShareholdersSection t={t} />}
+        {activeSection === 'scenarios' && <ScenariosSection selectedRound={selectedRound} setSelectedRound={setSelectedRound} t={t} />}
+        {activeSection === 'reports' && <ReportsSection t={t} />}
+        {activeSection === 'portal' && <InvestorPortalSection t={t} />}
       </main>
     </div>
+  );
+}
+
+function OverviewSection({
+  selectedRound,
+  setSelectedRound,
+  t,
+}: {
+  selectedRound: (typeof rounds)[number];
+  setSelectedRound: (round: (typeof rounds)[number]) => void;
+  t: Copy;
+}) {
+  return (
+    <>
+      <section className="dashboard-grid">
+        <Metric icon={<Users />} label={t.dashboard.totalShares} value={formatNumber(totalShares())} />
+        <Metric icon={<CircleDollarSign />} label={t.dashboard.preMoney} value={formatMoney(selectedRound.preMoney)} />
+        <Metric icon={<PieChart />} label={t.dashboard.investorOwnership} value={`${roundInvestorOwnership(selectedRound).toFixed(1)}%`} />
+        <Metric icon={<Gauge />} label={t.dashboard.founderOwnership} value={`${Math.max(founderOwnershipAfter(selectedRound), 0).toFixed(1)}%`} />
+      </section>
+
+      <section className="workbench">
+        <OwnershipCard t={t} />
+        <RoundModelCard selectedRound={selectedRound} setSelectedRound={setSelectedRound} t={t} />
+      </section>
+
+      <section className="workbench">
+        <RunwayCard t={t} />
+        <ScenarioChartCard t={t} />
+      </section>
+    </>
+  );
+}
+
+function OwnershipCard({ t }: { t: Copy }) {
+  return (
+    <div className="workspace-card large-card">
+      <div className="card-heading">
+        <div>
+          <p>{t.dashboard.ownership}</p>
+          <h2>{t.dashboard.currentCapTable}</h2>
+        </div>
+        <button className="secondary-button"><Plus size={16} /> {t.dashboard.addHolder}</button>
+      </div>
+      <div className="ownership-layout">
+        <ResponsiveContainer width="100%" height={260}>
+          <RePieChart>
+            <Pie data={ownershipData} innerRadius={72} outerRadius={104} paddingAngle={3} dataKey="value">
+              {ownershipData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+            </Pie>
+            <Tooltip />
+          </RePieChart>
+        </ResponsiveContainer>
+        <div className="holder-list">
+          {stakeholders.map((holder) => (
+            <div key={holder.name}>
+              <span style={{ background: holder.color }} />
+              <strong>{holder.name}</strong>
+              <small>{holder.role}</small>
+              <em>{ownershipPercent(holder.shares).toFixed(1)}%</em>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoundModelCard({
+  selectedRound,
+  setSelectedRound,
+  t,
+}: {
+  selectedRound: (typeof rounds)[number];
+  setSelectedRound: (round: (typeof rounds)[number]) => void;
+  t: Copy;
+}) {
+  return (
+    <div className="workspace-card">
+      <div className="card-heading">
+        <div>
+          <p>{t.dashboard.roundModel}</p>
+          <h2>{selectedRound.name}</h2>
+        </div>
+      </div>
+      <div className="round-list">
+        {rounds.map((round) => (
+          <button className={round.name === selectedRound.name ? 'active' : ''} key={round.name} onClick={() => setSelectedRound(round)}>
+            <span>
+              <strong>{round.name}</strong>
+              <small>{formatMoney(round.investment)} {t.dashboard.investment}</small>
+            </span>
+            <ChevronRight size={18} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RunwayCard({ t }: { t: Copy }) {
+  return (
+    <div className="workspace-card">
+      <div className="card-heading">
+        <div>
+          <p>{t.dashboard.runway}</p>
+          <h2>{t.dashboard.cashAfterRaise}</h2>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={250}>
+        <AreaChart data={runwayData}>
+          <XAxis dataKey="month" tickLine={false} axisLine={false} />
+          <YAxis hide />
+          <Tooltip />
+          <Area type="monotone" dataKey="cash" stroke="#1d4ed8" fill="#bfdbfe" strokeWidth={3} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ScenarioChartCard({ t }: { t: Copy }) {
+  return (
+    <div className="workspace-card large-card">
+      <div className="card-heading">
+        <div>
+          <p>{t.dashboard.comparison}</p>
+          <h2>{t.dashboard.founderVsInvestor}</h2>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={250}>
+        <BarChart data={scenarioRows}>
+          <XAxis dataKey="name" tickLine={false} axisLine={false} />
+          <YAxis />
+          <Tooltip />
+          <Bar dataKey="founders" fill="#1d4ed8" radius={[7, 7, 0, 0]} />
+          <Bar dataKey="investor" fill="#0f766e" radius={[7, 7, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ShareholdersSection({ t }: { t: Copy }) {
+  return (
+    <section className="workspace-card section-card">
+      <div className="card-heading">
+        <div>
+          <p>{t.dashboard.ownership}</p>
+          <h2>{t.dashboard.nav[1]}</h2>
+        </div>
+        <button className="secondary-button"><Plus size={16} /> {t.dashboard.addHolder}</button>
+      </div>
+      <div className="data-table">
+        <div className="table-row table-head">
+          <span>{t.auth.company}</span>
+          <span>{t.dashboard.shares}</span>
+          <span>{t.dashboard.ownershipPercent}</span>
+          <span>{t.dashboard.shareClass}</span>
+        </div>
+        {stakeholders.map((holder, index) => (
+          <div className="table-row" key={holder.name}>
+            <span className="person-cell"><i style={{ background: holder.color }} /> <strong>{holder.name}</strong><small>{holder.role}</small></span>
+            <span>{formatNumber(holder.shares)}</span>
+            <span>{ownershipPercent(holder.shares).toFixed(1)}%</span>
+            <span>{index < 2 ? t.dashboard.common : index === 2 ? t.dashboard.preferred : t.dashboard.options}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ScenariosSection({
+  selectedRound,
+  setSelectedRound,
+  t,
+}: {
+  selectedRound: (typeof rounds)[number];
+  setSelectedRound: (round: (typeof rounds)[number]) => void;
+  t: Copy;
+}) {
+  return (
+    <>
+      <section className="scenario-summary">
+        {rounds.map((round) => (
+          <button className={round.name === selectedRound.name ? 'workspace-card active scenario-option' : 'workspace-card scenario-option'} key={round.name} onClick={() => setSelectedRound(round)}>
+            <strong>{round.name}</strong>
+            <span>{t.dashboard.valuation}: {formatMoney(round.preMoney)}</span>
+            <span>{t.dashboard.investment}: {formatMoney(round.investment)}</span>
+            <span>{t.dashboard.optionPool}: {round.optionPool}%</span>
+          </button>
+        ))}
+      </section>
+      <section className="workbench">
+        <ScenarioChartCard t={t} />
+        <div className="workspace-card">
+          <div className="card-heading">
+            <div>
+              <p>{t.dashboard.roundModel}</p>
+              <h2>{selectedRound.name}</h2>
+            </div>
+          </div>
+          <div className="insight-list">
+            <div><span>{t.dashboard.investorOwnership}</span><strong>{roundInvestorOwnership(selectedRound).toFixed(1)}%</strong></div>
+            <div><span>{t.dashboard.foundersRetained}</span><strong>{Math.max(founderOwnershipAfter(selectedRound), 0).toFixed(1)}%</strong></div>
+            <div><span>{t.dashboard.optionPool}</span><strong>{selectedRound.optionPool}%</strong></div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function ReportsSection({ t }: { t: Copy }) {
+  return (
+    <section className="report-grid">
+      {t.dashboard.reportItems.map((item, index) => (
+        <article className="workspace-card report-card" key={item}>
+          <FileText size={24} />
+          <h2>{item}</h2>
+          <p>{index === 1 ? t.dashboard.ready : t.dashboard.draft}</p>
+          <button className={index === 1 ? 'primary-button' : 'secondary-button'}>
+            {t.dashboard.generateReport}
+          </button>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function InvestorPortalSection({ t }: { t: Copy }) {
+  return (
+    <section className="workbench">
+      <div className="workspace-card large-card">
+        <div className="card-heading">
+          <div>
+            <p>{t.dashboard.nav[4]}</p>
+            <h2>{t.dashboard.portalAccess}</h2>
+          </div>
+          <span className="status-pill">{t.dashboard.enabled}</span>
+        </div>
+        <p className="muted">{t.dashboard.portalIntro}</p>
+        <div className="portal-metrics">
+          <Metric icon={<Users />} label={t.dashboard.nav[1]} value="12" />
+          <Metric icon={<Eye />} label={t.dashboard.lastViewed} value="2h" />
+          <Metric icon={<FileText />} label={t.dashboard.nav[3]} value="3" />
+        </div>
+      </div>
+      <div className="workspace-card">
+        <div className="card-heading">
+          <div>
+            <p>{t.dashboard.status}</p>
+            <h2>{t.dashboard.ready}</h2>
+          </div>
+        </div>
+        <div className="insight-list">
+          <div><span>Sequoia Capital</span><strong>{t.dashboard.enabled}</strong></div>
+          <div><span>Accel Partners</span><strong>{t.dashboard.enabled}</strong></div>
+          <div><span>Board observer</span><strong>{t.dashboard.draft}</strong></div>
+        </div>
+        <button className="primary-button full"><Plus size={16} /> {t.dashboard.inviteInvestor}</button>
+      </div>
+    </section>
   );
 }
