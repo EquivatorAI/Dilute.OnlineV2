@@ -28,6 +28,9 @@ import {
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import {
+  companies,
+  freeEmailDomains,
+  type Company,
   formatMoney,
   formatNumber,
   founderOwnershipAfter,
@@ -35,12 +38,13 @@ import {
   roundInvestorOwnership,
   rounds,
   scenarioRows,
-  stakeholders,
+  scenarioRowsFor,
+  platformUsers,
   totalShares,
 } from './data';
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart as RePieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-type Page = 'home' | 'signin' | 'signup' | 'dashboard';
+type Page = 'home' | 'signin' | 'signup' | 'dashboard' | 'admin';
 type Language = 'en' | 'ar';
 type DashboardSection = 'overview' | 'shareholders' | 'scenarios' | 'reports' | 'portal';
 
@@ -53,6 +57,7 @@ const copy = {
       pricing: 'Pricing',
       signIn: 'Sign in',
       startFree: 'Sign Up',
+      admin: 'Admin',
       language: 'العربية',
       home: 'Go home',
       theme: 'Toggle theme',
@@ -107,12 +112,21 @@ const copy = {
       signinText: 'Open your cap table, scenarios, and investor reports.',
       email: 'Email',
       emailPlaceholder: 'founder@company.com',
+      corporateOnly: 'Use your corporate email. Personal email domains are not accepted.',
+      corporateError: 'Please use a corporate email address, not a personal email domain.',
       password: 'Password',
       passwordPlaceholder: 'Enter password',
       company: 'Company name',
       companyPlaceholder: 'Acme AI',
       create: 'Create workspace',
       signin: 'Sign in',
+      sendCode: 'Send verification code',
+      verifyTitle: 'Verify your identity',
+      verifyText: 'We sent a multi-factor authentication code to your corporate email.',
+      code: 'Verification code',
+      codePlaceholder: 'Enter 6-digit code',
+      verify: 'Verify and continue',
+      codeHint: 'Prototype code: 246810',
       already: 'Already have an account?',
       need: 'Need a new workspace?',
       passwordToggle: 'Toggle password visibility',
@@ -163,6 +177,15 @@ const copy = {
       enabled: 'Enabled',
       lastViewed: 'Last viewed',
       inviteInvestor: 'Invite investor',
+      companies: 'Companies',
+      addCompany: 'Add company',
+      adminTitle: 'Admin review dashboard',
+      adminSubtitle: 'Review every user, corporate email status, and the companies connected to each account.',
+      users: 'Users',
+      emailStatus: 'Email status',
+      userCompanies: 'User companies',
+      review: 'Review',
+      approve: 'Approve',
     },
   },
   ar: {
@@ -173,6 +196,7 @@ const copy = {
       pricing: 'الأسعار',
       signIn: 'تسجيل الدخول',
       startFree: 'إنشاء حساب',
+      admin: 'المسؤول',
       language: 'English',
       home: 'العودة للرئيسية',
       theme: 'تبديل المظهر',
@@ -227,12 +251,21 @@ const copy = {
       signinText: 'افتح جدول الملكية والسيناريوهات وتقارير المستثمرين.',
       email: 'البريد الإلكتروني',
       emailPlaceholder: 'founder@company.com',
+      corporateOnly: 'استخدم بريد الشركة فقط. لا تقبل عناوين البريد الشخصية.',
+      corporateError: 'يرجى استخدام بريد شركة وليس نطاق بريد شخصي.',
       password: 'كلمة المرور',
       passwordPlaceholder: 'أدخل كلمة المرور',
       company: 'اسم الشركة',
       companyPlaceholder: 'Acme AI',
       create: 'إنشاء مساحة العمل',
       signin: 'تسجيل الدخول',
+      sendCode: 'إرسال رمز التحقق',
+      verifyTitle: 'تحقق من هويتك',
+      verifyText: 'أرسلنا رمز تحقق متعدد العوامل إلى بريد الشركة.',
+      code: 'رمز التحقق',
+      codePlaceholder: 'أدخل الرمز من 6 أرقام',
+      verify: 'تحقق وتابع',
+      codeHint: 'رمز النموذج: 246810',
       already: 'لديك حساب بالفعل؟',
       need: 'تحتاج مساحة عمل جديدة؟',
       passwordToggle: 'إظهار أو إخفاء كلمة المرور',
@@ -283,6 +316,15 @@ const copy = {
       enabled: 'مفعل',
       lastViewed: 'آخر مشاهدة',
       inviteInvestor: 'دعوة مستثمر',
+      companies: 'الشركات',
+      addCompany: 'إضافة شركة',
+      adminTitle: 'لوحة مراجعة المسؤول',
+      adminSubtitle: 'راجع كل مستخدم وحالة بريد الشركة والشركات المرتبطة بكل حساب.',
+      users: 'المستخدمون',
+      emailStatus: 'حالة البريد',
+      userCompanies: 'شركات المستخدم',
+      review: 'مراجعة',
+      approve: 'اعتماد',
     },
   },
 } as const;
@@ -291,6 +333,7 @@ const routeToPage = (): Page => {
   const path = window.location.pathname;
   if (path.includes('signin')) return 'signin';
   if (path.includes('signup')) return 'signup';
+  if (path.includes('admin')) return 'admin';
   if (path.includes('app')) return 'dashboard';
   return 'home';
 };
@@ -300,23 +343,6 @@ const navigate = (page: Page) => {
   window.history.pushState({}, '', path);
   window.dispatchEvent(new PopStateEvent('popstate'));
 };
-
-const ownershipData = stakeholders.map((holder) => ({
-  name: holder.name,
-  value: Number(ownershipPercent(holder.shares).toFixed(1)),
-  color: holder.color,
-}));
-
-const runwayData = [
-  { month: 'Jan', cash: 920 },
-  { month: 'Feb', cash: 860 },
-  { month: 'Mar', cash: 790 },
-  { month: 'Apr', cash: 720 },
-  { month: 'May', cash: 650 },
-  { month: 'Jun', cash: 580 },
-  { month: 'Jul', cash: 510 },
-  { month: 'Aug', cash: 450 },
-];
 
 export function App() {
   const [page, setPage] = useState<Page>(routeToPage);
@@ -339,6 +365,7 @@ export function App() {
       {page === 'signin' && <AuthPage mode="signin" go={go} dark={dark} setDark={setDark} t={t} onLanguageToggle={toggleLanguage} />}
       {page === 'signup' && <AuthPage mode="signup" go={go} dark={dark} setDark={setDark} t={t} onLanguageToggle={toggleLanguage} />}
       {page === 'dashboard' && <Dashboard go={go} dark={dark} setDark={setDark} t={t} onLanguageToggle={toggleLanguage} />}
+      {page === 'admin' && <AdminDashboard go={go} dark={dark} setDark={setDark} t={t} onLanguageToggle={toggleLanguage} />}
     </div>
   );
 }
@@ -379,6 +406,7 @@ function TopNav({
           {dark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         <button className="ghost-button hide-mobile" onClick={() => go('signin')}>{t.nav.signIn}</button>
+        <button className="ghost-button hide-mobile" onClick={() => go('admin')}>{t.nav.admin}</button>
         <button className="primary-button hide-mobile" onClick={() => go('signup')}>
           {t.nav.startFree} <ArrowRight size={17} />
         </button>
@@ -574,6 +602,15 @@ function AuthPage({
   onLanguageToggle: () => void;
 }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [mfaSent, setMfaSent] = useState(false);
+  const [code, setCode] = useState('');
+  const emailDomain = email.split('@')[1]?.toLowerCase().trim() ?? '';
+  const isCorporateEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !freeEmailDomains.includes(emailDomain);
+  const showCorporateError = email.length > 3 && !isCorporateEmail;
+  const canSendCode = isCorporateEmail;
+  const canVerify = code.trim().length >= 6;
+
   return (
     <>
       <TopNav go={go} dark={dark} setDark={setDark} t={t} onLanguageToggle={onLanguageToggle} />
@@ -584,30 +621,57 @@ function AuthPage({
             <span>Dilute</span>
           </button>
           <h1>{mode === 'signup' ? t.auth.signupTitle : t.auth.signinTitle}</h1>
-          <p>{mode === 'signup' ? t.auth.signupText : t.auth.signinText}</p>
-          <label>
-            <span>{t.auth.email}</span>
-            <div className="input-wrap"><Mail size={18} /><input placeholder={t.auth.emailPlaceholder} /></div>
-          </label>
-          <label>
-            <span>{t.auth.password}</span>
-            <div className="input-wrap">
-              <Lock size={18} />
-              <input type={showPassword ? 'text' : 'password'} placeholder={t.auth.passwordPlaceholder} />
-              <button onClick={() => setShowPassword(!showPassword)} aria-label={t.auth.passwordToggle}>
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          <p>{mfaSent ? t.auth.verifyText : mode === 'signup' ? t.auth.signupText : t.auth.signinText}</p>
+          {!mfaSent ? (
+            <>
+              <div className="security-note"><ShieldCheck size={17} /> {t.auth.corporateOnly}</div>
+              <label>
+                <span>{t.auth.email}</span>
+                <div className={showCorporateError ? 'input-wrap input-error' : 'input-wrap'}>
+                  <Mail size={18} />
+                  <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t.auth.emailPlaceholder} />
+                </div>
+                {showCorporateError && <small className="form-error">{t.auth.corporateError}</small>}
+              </label>
+              <label>
+                <span>{t.auth.password}</span>
+                <div className="input-wrap">
+                  <Lock size={18} />
+                  <input type={showPassword ? 'text' : 'password'} placeholder={t.auth.passwordPlaceholder} />
+                  <button onClick={() => setShowPassword(!showPassword)} aria-label={t.auth.passwordToggle}>
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </label>
+              {mode === 'signup' && (
+                <label>
+                  <span>{t.auth.company}</span>
+                  <div className="input-wrap"><Building2 size={18} /><input placeholder={t.auth.companyPlaceholder} /></div>
+                </label>
+              )}
+              <button className="primary-button full" disabled={!canSendCode} onClick={() => setMfaSent(true)}>
+                {t.auth.sendCode} <ArrowRight size={18} />
               </button>
-            </div>
-          </label>
-          {mode === 'signup' && (
-            <label>
-              <span>{t.auth.company}</span>
-              <div className="input-wrap"><Building2 size={18} /><input placeholder={t.auth.companyPlaceholder} /></div>
-            </label>
+            </>
+          ) : (
+            <>
+              <div className="mfa-box">
+                <ShieldCheck size={22} />
+                <div>
+                  <strong>{t.auth.verifyTitle}</strong>
+                  <span>{email}</span>
+                </div>
+              </div>
+              <label>
+                <span>{t.auth.code}</span>
+                <div className="input-wrap"><Lock size={18} /><input value={code} onChange={(event) => setCode(event.target.value)} placeholder={t.auth.codePlaceholder} /></div>
+                <small className="code-hint">{t.auth.codeHint}</small>
+              </label>
+              <button className="primary-button full" disabled={!canVerify} onClick={() => go('dashboard')}>
+                {t.auth.verify} <ArrowRight size={18} />
+              </button>
+            </>
           )}
-          <button className="primary-button full" onClick={() => go('dashboard')}>
-            {mode === 'signup' ? t.auth.create : t.auth.signin} <ArrowRight size={18} />
-          </button>
           <button className="link-button" onClick={() => go(mode === 'signup' ? 'signin' : 'signup')}>
             {mode === 'signup' ? t.auth.already : t.auth.need}
           </button>
@@ -630,7 +694,10 @@ function Dashboard({
   t: Copy;
   onLanguageToggle: () => void;
 }) {
-  const [selectedRound, setSelectedRound] = useState(rounds[1]);
+  const [activeCompanyId, setActiveCompanyId] = useState(companies[0].id);
+  const activeCompany = companies.find((company) => company.id === activeCompanyId) ?? companies[0];
+  const [selectedRoundIndex, setSelectedRoundIndex] = useState(1);
+  const selectedRound = activeCompany.rounds[selectedRoundIndex] ?? activeCompany.rounds[0];
   const [activeSection, setActiveSection] = useState<DashboardSection>('overview');
   const sidebarItems: Array<[DashboardSection, ReactNode, string]> = [
     ['overview', <BarChart3 size={18} />, t.dashboard.nav[0]],
@@ -640,6 +707,12 @@ function Dashboard({
     ['portal', <Globe2 size={18} />, t.dashboard.nav[4]],
   ];
 
+  const selectCompany = (companyId: string) => {
+    setActiveCompanyId(companyId);
+    setSelectedRoundIndex(1);
+    setActiveSection('overview');
+  };
+
   return (
     <div className="dashboard">
       <aside className="sidebar">
@@ -647,23 +720,43 @@ function Dashboard({
           <span className="brand-mark">D</span>
           <span>Dilute</span>
         </button>
-        <nav>
-          {sidebarItems.map(([section, icon, label]) => (
-            <button
-              className={activeSection === section ? 'active' : ''}
-              key={section}
-              onClick={() => setActiveSection(section)}
-            >
-              {icon} {label}
-            </button>
+        <div className="company-tree">
+          <div className="sidebar-label">
+            <span>{t.dashboard.companies}</span>
+            <button aria-label={t.dashboard.addCompany}><Plus size={15} /></button>
+          </div>
+          {companies.map((company) => (
+            <div className={company.id === activeCompany.id ? 'company-node active' : 'company-node'} key={company.id}>
+              <button
+                className="company-button"
+                onClick={() => selectCompany(company.id)}
+              >
+                <span>{company.name.charAt(0)}</span>
+                <strong>{company.name}</strong>
+                <small>{company.stage}</small>
+              </button>
+              {company.id === activeCompany.id && (
+                <nav className="company-section-list" aria-label={`${company.name} sections`}>
+                  {sidebarItems.map(([section, icon, label]) => (
+                    <button
+                      className={activeSection === section ? 'active' : ''}
+                      key={section}
+                      onClick={() => setActiveSection(section)}
+                    >
+                      {icon} {label}
+                    </button>
+                  ))}
+                </nav>
+              )}
+            </div>
           ))}
-        </nav>
+        </div>
       </aside>
       <main className="dashboard-main">
         <header className="dashboard-header">
           <div>
             <p>{t.dashboard.workspace}</p>
-            <h1>{activeSection === 'overview' ? t.dashboard.title : t.dashboard.sectionTitles[activeSection]}</h1>
+            <h1>{activeSection === 'overview' ? `${activeCompany.name} ${t.dashboard.sectionTitles.overview}` : `${activeCompany.name} · ${t.dashboard.sectionTitles[activeSection]}`}</h1>
           </div>
           <div className="dashboard-actions">
             <button className="language-button" onClick={onLanguageToggle}>
@@ -678,48 +771,58 @@ function Dashboard({
           </div>
         </header>
 
-        {activeSection === 'overview' && <OverviewSection selectedRound={selectedRound} setSelectedRound={setSelectedRound} t={t} />}
-        {activeSection === 'shareholders' && <ShareholdersSection t={t} />}
-        {activeSection === 'scenarios' && <ScenariosSection selectedRound={selectedRound} setSelectedRound={setSelectedRound} t={t} />}
-        {activeSection === 'reports' && <ReportsSection t={t} />}
-        {activeSection === 'portal' && <InvestorPortalSection t={t} />}
+        {activeSection === 'overview' && <OverviewSection company={activeCompany} selectedRound={selectedRound} selectedRoundIndex={selectedRoundIndex} setSelectedRoundIndex={setSelectedRoundIndex} t={t} />}
+        {activeSection === 'shareholders' && <ShareholdersSection company={activeCompany} t={t} />}
+        {activeSection === 'scenarios' && <ScenariosSection company={activeCompany} selectedRound={selectedRound} selectedRoundIndex={selectedRoundIndex} setSelectedRoundIndex={setSelectedRoundIndex} t={t} />}
+        {activeSection === 'reports' && <ReportsSection company={activeCompany} t={t} />}
+        {activeSection === 'portal' && <InvestorPortalSection company={activeCompany} t={t} />}
       </main>
     </div>
   );
 }
 
 function OverviewSection({
+  company,
   selectedRound,
-  setSelectedRound,
+  selectedRoundIndex,
+  setSelectedRoundIndex,
   t,
 }: {
-  selectedRound: (typeof rounds)[number];
-  setSelectedRound: (round: (typeof rounds)[number]) => void;
+  company: Company;
+  selectedRound: Company['rounds'][number];
+  selectedRoundIndex: number;
+  setSelectedRoundIndex: (index: number) => void;
   t: Copy;
 }) {
   return (
     <>
       <section className="dashboard-grid">
-        <Metric icon={<Users />} label={t.dashboard.totalShares} value={formatNumber(totalShares())} />
+        <Metric icon={<Users />} label={t.dashboard.totalShares} value={formatNumber(totalShares(company.stakeholders))} />
         <Metric icon={<CircleDollarSign />} label={t.dashboard.preMoney} value={formatMoney(selectedRound.preMoney)} />
         <Metric icon={<PieChart />} label={t.dashboard.investorOwnership} value={`${roundInvestorOwnership(selectedRound).toFixed(1)}%`} />
-        <Metric icon={<Gauge />} label={t.dashboard.founderOwnership} value={`${Math.max(founderOwnershipAfter(selectedRound), 0).toFixed(1)}%`} />
+        <Metric icon={<Gauge />} label={t.dashboard.founderOwnership} value={`${Math.max(founderOwnershipAfter(selectedRound, company.stakeholders), 0).toFixed(1)}%`} />
       </section>
 
       <section className="workbench">
-        <OwnershipCard t={t} />
-        <RoundModelCard selectedRound={selectedRound} setSelectedRound={setSelectedRound} t={t} />
+        <OwnershipCard company={company} t={t} />
+        <RoundModelCard company={company} selectedRoundIndex={selectedRoundIndex} setSelectedRoundIndex={setSelectedRoundIndex} t={t} />
       </section>
 
       <section className="workbench">
-        <RunwayCard t={t} />
-        <ScenarioChartCard t={t} />
+        <RunwayCard company={company} t={t} />
+        <ScenarioChartCard company={company} t={t} />
       </section>
     </>
   );
 }
 
-function OwnershipCard({ t }: { t: Copy }) {
+function OwnershipCard({ company, t }: { company: Company; t: Copy }) {
+  const ownershipData = company.stakeholders.map((holder) => ({
+    name: holder.name,
+    value: Number(ownershipPercent(holder.shares, totalShares(company.stakeholders)).toFixed(1)),
+    color: holder.color,
+  }));
+
   return (
     <div className="workspace-card large-card">
       <div className="card-heading">
@@ -739,12 +842,12 @@ function OwnershipCard({ t }: { t: Copy }) {
           </RePieChart>
         </ResponsiveContainer>
         <div className="holder-list">
-          {stakeholders.map((holder) => (
+          {company.stakeholders.map((holder) => (
             <div key={holder.name}>
               <span style={{ background: holder.color }} />
               <strong>{holder.name}</strong>
               <small>{holder.role}</small>
-              <em>{ownershipPercent(holder.shares).toFixed(1)}%</em>
+              <em>{ownershipPercent(holder.shares, totalShares(company.stakeholders)).toFixed(1)}%</em>
             </div>
           ))}
         </div>
@@ -754,14 +857,18 @@ function OwnershipCard({ t }: { t: Copy }) {
 }
 
 function RoundModelCard({
-  selectedRound,
-  setSelectedRound,
+  company,
+  selectedRoundIndex,
+  setSelectedRoundIndex,
   t,
 }: {
-  selectedRound: (typeof rounds)[number];
-  setSelectedRound: (round: (typeof rounds)[number]) => void;
+  company: Company;
+  selectedRoundIndex: number;
+  setSelectedRoundIndex: (index: number) => void;
   t: Copy;
 }) {
+  const selectedRound = company.rounds[selectedRoundIndex] ?? company.rounds[0];
+
   return (
     <div className="workspace-card">
       <div className="card-heading">
@@ -771,8 +878,8 @@ function RoundModelCard({
         </div>
       </div>
       <div className="round-list">
-        {rounds.map((round) => (
-          <button className={round.name === selectedRound.name ? 'active' : ''} key={round.name} onClick={() => setSelectedRound(round)}>
+        {company.rounds.map((round, index) => (
+          <button className={round.name === selectedRound.name ? 'active' : ''} key={round.name} onClick={() => setSelectedRoundIndex(index)}>
             <span>
               <strong>{round.name}</strong>
               <small>{formatMoney(round.investment)} {t.dashboard.investment}</small>
@@ -785,7 +892,7 @@ function RoundModelCard({
   );
 }
 
-function RunwayCard({ t }: { t: Copy }) {
+function RunwayCard({ company, t }: { company: Company; t: Copy }) {
   return (
     <div className="workspace-card">
       <div className="card-heading">
@@ -795,7 +902,7 @@ function RunwayCard({ t }: { t: Copy }) {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={250}>
-        <AreaChart data={runwayData}>
+        <AreaChart data={company.runway}>
           <XAxis dataKey="month" tickLine={false} axisLine={false} />
           <YAxis hide />
           <Tooltip />
@@ -806,7 +913,9 @@ function RunwayCard({ t }: { t: Copy }) {
   );
 }
 
-function ScenarioChartCard({ t }: { t: Copy }) {
+function ScenarioChartCard({ company, t }: { company: Company; t: Copy }) {
+  const companyScenarioRows = scenarioRowsFor(company.stakeholders, company.rounds);
+
   return (
     <div className="workspace-card large-card">
       <div className="card-heading">
@@ -816,7 +925,7 @@ function ScenarioChartCard({ t }: { t: Copy }) {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={250}>
-        <BarChart data={scenarioRows}>
+        <BarChart data={companyScenarioRows}>
           <XAxis dataKey="name" tickLine={false} axisLine={false} />
           <YAxis />
           <Tooltip />
@@ -828,7 +937,7 @@ function ScenarioChartCard({ t }: { t: Copy }) {
   );
 }
 
-function ShareholdersSection({ t }: { t: Copy }) {
+function ShareholdersSection({ company, t }: { company: Company; t: Copy }) {
   return (
     <section className="workspace-card section-card">
       <div className="card-heading">
@@ -845,11 +954,11 @@ function ShareholdersSection({ t }: { t: Copy }) {
           <span>{t.dashboard.ownershipPercent}</span>
           <span>{t.dashboard.shareClass}</span>
         </div>
-        {stakeholders.map((holder, index) => (
+        {company.stakeholders.map((holder, index) => (
           <div className="table-row" key={holder.name}>
             <span className="person-cell"><i style={{ background: holder.color }} /> <strong>{holder.name}</strong><small>{holder.role}</small></span>
             <span>{formatNumber(holder.shares)}</span>
-            <span>{ownershipPercent(holder.shares).toFixed(1)}%</span>
+            <span>{ownershipPercent(holder.shares, totalShares(company.stakeholders)).toFixed(1)}%</span>
             <span>{index < 2 ? t.dashboard.common : index === 2 ? t.dashboard.preferred : t.dashboard.options}</span>
           </div>
         ))}
@@ -859,19 +968,23 @@ function ShareholdersSection({ t }: { t: Copy }) {
 }
 
 function ScenariosSection({
+  company,
   selectedRound,
-  setSelectedRound,
+  selectedRoundIndex,
+  setSelectedRoundIndex,
   t,
 }: {
-  selectedRound: (typeof rounds)[number];
-  setSelectedRound: (round: (typeof rounds)[number]) => void;
+  company: Company;
+  selectedRound: Company['rounds'][number];
+  selectedRoundIndex: number;
+  setSelectedRoundIndex: (index: number) => void;
   t: Copy;
 }) {
   return (
     <>
       <section className="scenario-summary">
-        {rounds.map((round) => (
-          <button className={round.name === selectedRound.name ? 'workspace-card active scenario-option' : 'workspace-card scenario-option'} key={round.name} onClick={() => setSelectedRound(round)}>
+        {company.rounds.map((round, index) => (
+          <button className={index === selectedRoundIndex ? 'workspace-card active scenario-option' : 'workspace-card scenario-option'} key={round.name} onClick={() => setSelectedRoundIndex(index)}>
             <strong>{round.name}</strong>
             <span>{t.dashboard.valuation}: {formatMoney(round.preMoney)}</span>
             <span>{t.dashboard.investment}: {formatMoney(round.investment)}</span>
@@ -880,7 +993,7 @@ function ScenariosSection({
         ))}
       </section>
       <section className="workbench">
-        <ScenarioChartCard t={t} />
+        <ScenarioChartCard company={company} t={t} />
         <div className="workspace-card">
           <div className="card-heading">
             <div>
@@ -890,7 +1003,7 @@ function ScenariosSection({
           </div>
           <div className="insight-list">
             <div><span>{t.dashboard.investorOwnership}</span><strong>{roundInvestorOwnership(selectedRound).toFixed(1)}%</strong></div>
-            <div><span>{t.dashboard.foundersRetained}</span><strong>{Math.max(founderOwnershipAfter(selectedRound), 0).toFixed(1)}%</strong></div>
+            <div><span>{t.dashboard.foundersRetained}</span><strong>{Math.max(founderOwnershipAfter(selectedRound, company.stakeholders), 0).toFixed(1)}%</strong></div>
             <div><span>{t.dashboard.optionPool}</span><strong>{selectedRound.optionPool}%</strong></div>
           </div>
         </div>
@@ -899,13 +1012,13 @@ function ScenariosSection({
   );
 }
 
-function ReportsSection({ t }: { t: Copy }) {
+function ReportsSection({ company, t }: { company: Company; t: Copy }) {
   return (
     <section className="report-grid">
       {t.dashboard.reportItems.map((item, index) => (
         <article className="workspace-card report-card" key={item}>
           <FileText size={24} />
-          <h2>{item}</h2>
+          <h2>{company.name} · {item}</h2>
           <p>{index === 1 ? t.dashboard.ready : t.dashboard.draft}</p>
           <button className={index === 1 ? 'primary-button' : 'secondary-button'}>
             {t.dashboard.generateReport}
@@ -916,7 +1029,7 @@ function ReportsSection({ t }: { t: Copy }) {
   );
 }
 
-function InvestorPortalSection({ t }: { t: Copy }) {
+function InvestorPortalSection({ company, t }: { company: Company; t: Copy }) {
   return (
     <section className="workbench">
       <div className="workspace-card large-card">
@@ -929,9 +1042,9 @@ function InvestorPortalSection({ t }: { t: Copy }) {
         </div>
         <p className="muted">{t.dashboard.portalIntro}</p>
         <div className="portal-metrics">
-          <Metric icon={<Users />} label={t.dashboard.nav[1]} value="12" />
-          <Metric icon={<Eye />} label={t.dashboard.lastViewed} value="2h" />
-          <Metric icon={<FileText />} label={t.dashboard.nav[3]} value="3" />
+          <Metric icon={<Users />} label={t.dashboard.nav[1]} value={String(company.investorCount)} />
+          <Metric icon={<Eye />} label={t.dashboard.lastViewed} value={company.portalViews} />
+          <Metric icon={<FileText />} label={t.dashboard.nav[3]} value={String(company.reportCount)} />
         </div>
       </div>
       <div className="workspace-card">
@@ -942,12 +1055,147 @@ function InvestorPortalSection({ t }: { t: Copy }) {
           </div>
         </div>
         <div className="insight-list">
-          <div><span>Sequoia Capital</span><strong>{t.dashboard.enabled}</strong></div>
-          <div><span>Accel Partners</span><strong>{t.dashboard.enabled}</strong></div>
-          <div><span>Board observer</span><strong>{t.dashboard.draft}</strong></div>
+          <div><span>{company.name} lead investor</span><strong>{t.dashboard.enabled}</strong></div>
+          <div><span>{company.name} board observer</span><strong>{t.dashboard.enabled}</strong></div>
+          <div><span>{company.name} diligence room</span><strong>{t.dashboard.draft}</strong></div>
         </div>
         <button className="primary-button full"><Plus size={16} /> {t.dashboard.inviteInvestor}</button>
       </div>
     </section>
+  );
+}
+
+function AdminDashboard({
+  go,
+  dark,
+  setDark,
+  t,
+  onLanguageToggle,
+}: {
+  go: (page: Page) => void;
+  dark: boolean;
+  setDark: (value: boolean) => void;
+  t: Copy;
+  onLanguageToggle: () => void;
+}) {
+  const [selectedUserId, setSelectedUserId] = useState(platformUsers[0].id);
+  const selectedUser = platformUsers.find((user) => user.id === selectedUserId) ?? platformUsers[0];
+  const userCompanies = companies.filter((company) => selectedUser.companyIds.includes(company.id));
+  const totalManagedCompanies = platformUsers.reduce((count, user) => count + user.companyIds.length, 0);
+
+  return (
+    <div className="dashboard admin-dashboard">
+      <aside className="sidebar">
+        <button className="brand" onClick={() => go('home')} aria-label={t.nav.home}>
+          <span className="brand-mark">D</span>
+          <span>Dilute</span>
+        </button>
+        <nav>
+          <button className="active"><ShieldCheck size={18} /> {t.nav.admin}</button>
+          <button onClick={() => go('dashboard')}><BarChart3 size={18} /> {t.dashboard.workspace}</button>
+          <button onClick={() => go('home')}><Globe2 size={18} /> {t.nav.platform}</button>
+        </nav>
+      </aside>
+      <main className="dashboard-main">
+        <header className="dashboard-header">
+          <div>
+            <p>{t.nav.admin}</p>
+            <h1>{t.dashboard.adminTitle}</h1>
+          </div>
+          <div className="dashboard-actions">
+            <button className="language-button" onClick={onLanguageToggle}>
+              <Globe2 size={16} />
+              {t.nav.language}
+            </button>
+            <button className="icon-button" onClick={() => setDark(!dark)} aria-label={t.nav.theme}>
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+          </div>
+        </header>
+
+        <p className="admin-subtitle">{t.dashboard.adminSubtitle}</p>
+
+        <section className="dashboard-grid">
+          <Metric icon={<Users />} label={t.dashboard.users} value={String(platformUsers.length)} />
+          <Metric icon={<Building2 />} label={t.dashboard.companies} value={String(companies.length)} />
+          <Metric icon={<ShieldCheck />} label={t.dashboard.emailStatus} value="MFA" />
+          <Metric icon={<FileText />} label={t.dashboard.userCompanies} value={String(totalManagedCompanies)} />
+        </section>
+
+        <section className="workbench admin-workbench">
+          <div className="workspace-card large-card">
+            <div className="card-heading">
+              <div>
+                <p>{t.dashboard.users}</p>
+                <h2>{t.dashboard.emailStatus}</h2>
+              </div>
+            </div>
+            <div className="data-table">
+              <div className="table-row admin-user-row table-head">
+                <span>{t.dashboard.users}</span>
+                <span>{t.auth.email}</span>
+                <span>{t.dashboard.status}</span>
+                <span>{t.dashboard.userCompanies}</span>
+              </div>
+              {platformUsers.map((user) => (
+                <button className={selectedUser.id === user.id ? 'table-row admin-user-row active' : 'table-row admin-user-row'} key={user.id} onClick={() => setSelectedUserId(user.id)}>
+                  <span className="person-cell"><i /> <strong>{user.name}</strong><small>{user.role}</small></span>
+                  <span>{user.email}</span>
+                  <span>{user.status}</span>
+                  <span>{user.companyIds.length}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="workspace-card">
+            <div className="card-heading">
+              <div>
+                <p>{selectedUser.email}</p>
+                <h2>{selectedUser.name}</h2>
+              </div>
+              <span className="status-pill">{selectedUser.status}</span>
+            </div>
+            <div className="insight-list">
+              {userCompanies.map((company) => (
+                <div key={company.id}>
+                  <span>{company.name}</span>
+                  <strong>{company.stage}</strong>
+                </div>
+              ))}
+            </div>
+            <button className="primary-button full"><ShieldCheck size={16} /> {t.dashboard.approve}</button>
+          </div>
+        </section>
+
+        <section className="workspace-card section-card">
+          <div className="card-heading">
+            <div>
+              <p>{t.dashboard.companies}</p>
+              <h2>{t.dashboard.review}</h2>
+            </div>
+          </div>
+          <div className="data-table">
+            <div className="table-row table-head">
+              <span>{t.auth.company}</span>
+              <span>{t.dashboard.status}</span>
+              <span>{t.dashboard.users}</span>
+              <span>{t.dashboard.review}</span>
+            </div>
+            {companies.map((company) => {
+              const ownerCount = platformUsers.filter((user) => user.companyIds.includes(company.id)).length;
+              return (
+                <div className="table-row" key={company.id}>
+                  <span className="person-cell"><i /> <strong>{company.name}</strong><small>{company.stage}</small></span>
+                  <span>{company.portalViews === '1d' ? t.dashboard.draft : t.dashboard.ready}</span>
+                  <span>{ownerCount}</span>
+                  <span><button className="secondary-button">{t.dashboard.review}</button></span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }
